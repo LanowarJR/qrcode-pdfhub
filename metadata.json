@@ -1,0 +1,6 @@
+{
+  "name": "QR-Code PDF HUB",
+  "description": "Gestão de documentos PDF com acesso público via QR Code.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
