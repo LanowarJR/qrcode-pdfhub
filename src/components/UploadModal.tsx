@@ -46,7 +46,11 @@ export default function UploadModal({ isOpen, onClose, onSuccess, user }: Upload
     setError(null);
     try {
       const docId = crypto.randomUUID();
-      const storagePath = `${user.id}/${docId}-${file.name}`;
+      const sanitizedFileName = file.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `${user.id}/${docId}-${sanitizedFileName}`;
 
       // 1. Upload to Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
