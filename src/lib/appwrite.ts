@@ -1,8 +1,15 @@
 import { Client, Account, Databases, Storage, ID } from 'appwrite';
 
+const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
+const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID;
+
+if (!endpoint || !projectId) {
+  console.error('Appwrite environment variables are missing!');
+}
+
 const client = new Client()
-  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
-  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+  .setEndpoint(endpoint || 'https://sfo.cloud.appwrite.io/v1') // Fallback to avoid crash
+  .setProject(projectId || '');
 
 export const account = new Account(client);
 export const databases = new Databases(client);
