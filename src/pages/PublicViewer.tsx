@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { databases, DATABASE_ID, DOCUMENTS_COLLECTION_ID } from '../lib/appwrite';
+import { databases, DATABASE_ID, DOCUMENTS_COLLECTION_ID, Query } from '../lib/appwrite';
 import { PDFDocument } from '../types';
 import { ShieldCheck, FileText, Download, AlertCircle, ExternalLink, Calendar, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
@@ -17,31 +17,30 @@ export default function PublicViewer() {
       if (!qrId) return;
       
       try {
-        const response = await databases.listDocuments(
+        const doc = await databases.getDocument(
           DATABASE_ID,
           DOCUMENTS_COLLECTION_ID,
-          [(`qr_id=${qrId}`) as any]
+          qrId
         );
         
-        if (response.documents.length === 0) {
+        setDocData({
+          id: doc.$id,
+          name: doc.name,
+          url: doc.url,
+          storagePath: doc.storage_path,
+          qrId: doc.qr_id,
+          createdAt: new Date(doc.$createdAt).getTime(),
+          ownerId: doc.owner_id,
+          size: doc.size,
+          category: doc.category,
+        } as PDFDocument);
+      } catch (err: any) {
+        console.error(err);
+        if (err.code === 404) {
           setError("Documento não encontrado ou código inválido.");
         } else {
-          const doc = response.documents[0];
-          setDocData({
-            id: doc.$id,
-            name: doc.name,
-            url: doc.url,
-            storagePath: doc.storage_path,
-            qrId: doc.qr_id,
-            createdAt: new Date(doc.$createdAt).getTime(),
-            ownerId: doc.owner_id,
-            size: doc.size,
-            category: doc.category,
-          } as PDFDocument);
+          setError("Ocorreu um erro ao buscar o documento.");
         }
-      } catch (err) {
-        console.error(err);
-        setError("Ocorreu um erro ao buscar o documento.");
       } finally {
         setLoading(false);
       }

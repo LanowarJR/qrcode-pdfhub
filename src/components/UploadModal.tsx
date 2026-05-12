@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent } from 'react';
-import { storage, databases, account, ID, DATABASE_ID, DOCUMENTS_COLLECTION_ID, STORAGE_BUCKET_ID } from '../lib/appwrite';
+import { storage, databases, account, ID, DATABASE_ID, DOCUMENTS_COLLECTION_ID, STORAGE_BUCKET_ID, Permission, Role } from '../lib/appwrite';
 import { X, Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -55,7 +55,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess, user }: Upload
       const uploadedFile = await storage.createFile(
         STORAGE_BUCKET_ID,
         ID.unique(),
-        file
+        file,
+        [Permission.read(Role.any())]
       );
 
       // 2. Get Public URL
@@ -74,7 +75,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess, user }: Upload
           qr_id: docId,
           size: file.size,
           category,
-        }
+        },
+        [Permission.read(Role.any())]
       );
 
       setIsSuccess(true);
