@@ -1,17 +1,28 @@
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { account } from '../lib/appwrite';
 import { LogOut, ShieldCheck, Home, FileText, QrCode, User as UserIcon } from 'lucide-react';
-import { cn } from '../lib/utils';
+
+interface AppwriteUser {
+  $id: string;
+  name: string;
+  email: string;
+  prefs?: Record<string, any>;
+}
 
 interface SidebarProps {
-  user: User | null;
+  user: AppwriteUser | null;
 }
 
 export default function Sidebar({ user }: SidebarProps) {
-  const handleSignOut = () => supabase.auth.signOut();
+  const handleSignOut = async () => {
+    try {
+      await account.deleteSession('current');
+    } catch (error) {
+      console.error("Sign out error:", error);
+      window.location.href = '/login';
+    }
+  };
 
-  const userPhoto = user?.user_metadata?.avatar_url;
-  const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0];
+  const userDisplayName = user?.name || user?.email?.split('@')[0];
 
   return (
     <aside className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 text-slate-300 flex md:flex-col border-t md:border-t-0 md:border-r border-slate-800 md:h-screen md:sticky md:top-0 md:w-64 md:shrink-0 transition-all">
@@ -40,13 +51,9 @@ export default function Sidebar({ user }: SidebarProps) {
       <div className="hidden md:block p-4 space-y-4">
         <div className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800 transition-colors group">
           <div className="flex items-center gap-2 overflow-hidden">
-            {userPhoto ? (
-              <img src={userPhoto} alt="" className="w-8 h-8 rounded-full border border-slate-700 shrink-0" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-                <UserIcon size={14} />
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+              <UserIcon size={14} />
+            </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold text-white truncate">{userDisplayName}</span>
               <span className="text-[10px] text-slate-500 truncate">Gerente</span>

@@ -8,6 +8,7 @@ export interface PDFDocument {
   size?: number;
   category?: string;
   department?: string;
+  ownerId?: string;
 }
 
 export type AuthState = "loading" | "authenticated" | "unauthenticated";

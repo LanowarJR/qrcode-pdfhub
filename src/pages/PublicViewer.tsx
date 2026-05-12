@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { databases, DATABASE_ID, DOCUMENTS_COLLECTION_ID } from '../lib/appwrite';
 import { PDFDocument } from '../types';
 import { ShieldCheck, FileText, Download, AlertCircle, ExternalLink, Calendar, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
@@ -13,31 +13,30 @@ export default function PublicViewer() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) {
-      setError("Configuração do Supabase ausente. Verifique as variáveis de ambiente.");
-      setLoading(false);
-      return;
-    }
-
     const fetchDoc = async () => {
       if (!qrId) return;
       
       try {
-        const { data, error: dbError } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('qr_id', qrId)
-          .single();
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          DOCUMENTS_COLLECTION_ID,
+          [(`qr_id=${qrId}`) as any]
+        );
         
-        if (dbError || !data) {
+        if (response.documents.length === 0) {
           setError("Documento não encontrado ou código inválido.");
         } else {
+          const doc = response.documents[0];
           setDocData({
-            ...data,
-            ownerId: data.owner_id,
-            storagePath: data.storage_path,
-            qrId: data.qr_id,
-            createdAt: new Date(data.created_at).getTime(),
+            id: doc.$id,
+            name: doc.name,
+            url: doc.url,
+            storagePath: doc.storage_path,
+            qrId: doc.qr_id,
+            createdAt: new Date(doc.$createdAt).getTime(),
+            ownerId: doc.owner_id,
+            size: doc.size,
+            category: doc.category,
           } as PDFDocument);
         }
       } catch (err) {
@@ -78,10 +77,9 @@ export default function PublicViewer() {
     );
   }
 
-  const handleDownload = async (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
-      // Fetch the file as a blob to force download from cross-origin
       const response = await fetch(docData.url);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -92,12 +90,10 @@ export default function PublicViewer() {
       document.body.appendChild(link);
       link.click();
       
-      // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download failed:", err);
-      // Fallback if fetch fails (e.g. CORS issues)
       window.open(docData.url, '_blank');
     }
   };
@@ -189,10 +185,4 @@ export default function PublicViewer() {
       </main>
     </div>
   );
-}
-
-function Check({ size }: { size: number }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-    )
 }

@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { databases, DATABASE_ID, DOCUMENTS_COLLECTION_ID } from '../lib/appwrite';
 import { PDFDocument } from '../types';
 import { FileText, Search, Plus, Info } from 'lucide-react';
 import FileCard from '../components/FileCard';
 import UploadModal from '../components/UploadModal';
 import { motion, AnimatePresence } from 'motion/react';
 
+interface AppwriteUser {
+  $id: string;
+  name: string;
+  email: string;
+}
+
 interface DashboardProps {
-  user: User;
+  user: AppwriteUser;
 }
 
 export default function Dashboard({ user }: DashboardProps) {
@@ -18,50 +23,38 @@ export default function Dashboard({ user }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchDocs = async (showLoading = true) => {
-    if (!supabase) return;
     if (showLoading) setLoading(true);
     
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        DOCUMENTS_COLLECTION_ID
+      );
 
-    if (error) {
-      console.error("Error fetching documents:", error);
-    } else {
-      const formattedDocs: PDFDocument[] = (data || []).map(doc => ({
-        ...doc,
-        ownerId: doc.owner_id,
+      const formattedDocs: PDFDocument[] = response.documents.map((doc: any) => ({
+        id: doc.$id,
+        name: doc.name,
+        url: doc.url,
         storagePath: doc.storage_path,
         qrId: doc.qr_id,
-        createdAt: new Date(doc.created_at).getTime(),
+        createdAt: new Date(doc.$createdAt).getTime(),
+        ownerId: doc.owner_id,
+        size: doc.size,
+        category: doc.category,
       }));
-      setDocs(formattedDocs);
+
+      const userDocs = formattedDocs.filter(doc => doc.ownerId === user.$id);
+      const sortedDocs = userDocs.sort((a, b) => b.createdAt - a.createdAt);
+      setDocs(sortedDocs);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchDocs();
-
-    // Set up real-time subscription
-    const channel = supabase
-      ?.channel('documents_changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'documents',
-        filter: `owner_id=eq.${user.id}`
-      }, () => {
-        fetchDocs(false);
-      })
-      .subscribe();
-
-    return () => {
-      if (channel) supabase?.removeChannel(channel);
-    };
-  }, [user.id]);
+  }, [user.$id]);
 
   const filteredDocs = docs.filter(doc => 
     doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

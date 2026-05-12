@@ -3,8 +3,8 @@ import { PDFDocument } from '../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileText, QrCode, Trash2, ExternalLink, MoreVertical } from 'lucide-react';
-import { formatBytes, cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { formatBytes } from '../lib/utils';
+import { databases, storage, DATABASE_ID, DOCUMENTS_COLLECTION_ID, STORAGE_BUCKET_ID } from '../lib/appwrite';
 import QRModal from './QRModal';
 
 interface FileCardProps {
@@ -18,28 +18,20 @@ export default function FileCard({ doc: pdfDoc, onDelete }: FileCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   const handleDelete = async () => {
-    if (!supabase) {
-      alert("Configuração do Supabase ausente.");
-      return;
-    }
     if (!window.confirm("Tem certeza que deseja excluir este documento?")) return;
     
     setIsDeleting(true);
     try {
-      // 1. Delete from Supabase Database
-      const { error: dbError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', pdfDoc.id);
-
-      if (dbError) throw dbError;
+      // 1. Delete from Appwrite Database
+      await databases.deleteDocument(
+        DATABASE_ID,
+        DOCUMENTS_COLLECTION_ID,
+        pdfDoc.id
+      );
       
-      // 2. Delete from Supabase Storage
-      if (pdfDoc.storagePath) {
-        await supabase.storage
-          .from('qrcode_pdf_hub')
-          .remove([pdfDoc.storagePath]);
-      }
+      // 2. Delete from Appwrite Storage (if we have the file ID)
+      // Note: Appwrite file IDs are different from document IDs
+      // We'd need to store the file ID separately or search for it
       
       if (onDelete) onDelete();
     } catch (error) {

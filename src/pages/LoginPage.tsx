@@ -1,23 +1,21 @@
-import { supabase } from '../lib/supabase';
+import { account } from '../lib/appwrite';
 import { ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function LoginPage() {
   const handleLogin = async () => {
-    if (!supabase) {
-      alert("Configuração do Supabase ausente. Verifique as chaves VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
-      return;
-    }
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/dashboard'
-        }
-      });
-      if (error) throw error;
+      console.log('Starting OAuth...');
+      console.log('Redirect URL:', window.location.origin + '/dashboard');
+      
+      await account.createOAuth2Session(
+        'google' as any,
+        window.location.origin + '/dashboard',
+        window.location.origin + '/login'
+      );
     } catch (error) {
       console.error("Login failed", error);
+      alert("Erro no login: " + (error as Error).message);
     }
   };
 

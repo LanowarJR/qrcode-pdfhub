@@ -1,22 +1,25 @@
 import { useState, useRef, ChangeEvent } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { storage, databases, account, ID, DATABASE_ID, DOCUMENTS_COLLECTION_ID, STORAGE_BUCKET_ID } from '../lib/appwrite';
 import { X, Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
+
+interface AppwriteUser {
+  $id: string;
+  name: string;
+  email: string;
+}
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  user: User;
+  user: AppwriteUser;
 }
 
 export default function UploadModal({ isOpen, onClose, onSuccess, user }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [category, setCategory] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,50 +39,43 @@ export default function UploadModal({ isOpen, onClose, onSuccess, user }: Upload
   };
 
   const handleUpload = async () => {
-    if (!supabase) {
-      setError("Configuração do Supabase ausente. Verifique as chaves VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.");
-      return;
-    }
     if (!file || !name) return;
 
     setIsUploading(true);
     setError(null);
     try {
-      const docId = crypto.randomUUID();
+      const docId = ID.unique();
       const sanitizedFileName = file.name
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${user.id}/${docId}-${sanitizedFileName}`;
+      const storagePath = `${user.$id}/${docId}-${sanitizedFileName}`;
 
-      // 1. Upload to Supabase Storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('qrcode_pdf_hub')
-        .upload(storagePath, file);
-
-      if (storageError) throw storageError;
+      // 1. Upload to Appwrite Storage
+      const uploadedFile = await storage.createFile(
+        STORAGE_BUCKET_ID,
+        ID.unique(),
+        file
+      );
 
       // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('qrcode_pdf_hub')
-        .getPublicUrl(storagePath);
+      const previewUrl = storage.getFileView(STORAGE_BUCKET_ID, uploadedFile.$id);
 
-      // 3. Save to Supabase Database
-      const { error: dbError } = await supabase
-        .from('documents')
-        .insert({
-          id: docId,
+      // 3. Save to Appwrite Database
+      await databases.createDocument(
+        DATABASE_ID,
+        DOCUMENTS_COLLECTION_ID,
+        docId,
+        {
           name,
-          url: publicUrl,
+          url: previewUrl,
           storage_path: storagePath,
-          owner_id: user.id,
+          owner_id: user.$id,
           qr_id: docId,
           size: file.size,
           category,
-          created_at: new Date().toISOString(),
-        });
-
-      if (dbError) throw dbError;
+        }
+      );
 
       setIsSuccess(true);
       if (onSuccess) onSuccess();

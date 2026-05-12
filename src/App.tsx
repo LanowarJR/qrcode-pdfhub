@@ -5,8 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { User } from '@supabase/supabase-js';
-import { supabase } from './lib/supabase';
+import { account } from './lib/appwrite';
 import { AuthState } from './types';
 
 // Pages
@@ -15,30 +14,47 @@ import Dashboard from './pages/Dashboard';
 import PublicViewer from './pages/PublicViewer';
 import Sidebar from './components/Navbar';
 
+interface AppwriteUser {
+  $id: string;
+  name: string;
+  email: string;
+}
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppwriteUser | null>(null);
   const [authState, setAuthState] = useState<AuthState>("loading");
 
   useEffect(() => {
-    if (!supabase) {
-      setAuthState("unauthenticated");
-      return;
-    }
-
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthState(session ? "authenticated" : "unauthenticated");
-    });
-
+    checkUser();
+    
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthState(session ? "authenticated" : "unauthenticated");
-    });
+    const unsubscribe = account.client.subscribe(
+      'account',
+      (response) => {
+        if (response.events.includes('account.update')) {
+          checkUser();
+        } else if (response.events.includes('account.delete')) {
+          setUser(null);
+          setAuthState("unauthenticated");
+        }
+      }
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  const checkUser = async () => {
+    try {
+      const userData = await account.get();
+      setUser(userData);
+      setAuthState("authenticated");
+    } catch {
+      setUser(null);
+      setAuthState("unauthenticated");
+    }
+  };
 
   if (authState === "loading") {
     return (
